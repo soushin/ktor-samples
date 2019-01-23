@@ -3,13 +3,15 @@ package com.github.soushin.ktorsample
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.soushin.ktorsample.client.github.GitHubClient
 import com.github.soushin.ktorsample.config.Config.gitHubBaseUrl
 import com.github.soushin.ktorsample.config.Config.gitHubToken
 import com.github.soushin.ktorsample.config.Config.jwtSecret
 import com.github.soushin.ktorsample.config.loggerAttributeKey
 import com.github.soushin.ktorsample.exception.SystemException
-import com.github.soushin.ktorsample.logger.RequestLogBuilder
+import com.github.soushin.ktorsample.logger.RequestLog
 import com.github.soushin.ktorsample.model.User
 import com.github.soushin.ktorsample.repository.github.PullRequestRepository
 import com.github.soushin.ktorsample.repository.github.PullRequestRepositoryImpl
@@ -23,7 +25,6 @@ import com.github.soushin.ktorsample.usecase.github.RepositoryUseCase
 import com.github.soushin.ktorsample.usecase.github.RepositoryUseCaseImpl
 import com.github.soushin.ktorsample.util.DateTimeUtil
 import com.github.soushin.ktorsample.util.logBuilder
-import com.github.soushin.ktorsample.util.user
 import io.ktor.application.Application
 import io.ktor.application.ApplicationCallPipeline
 import io.ktor.application.call
@@ -38,6 +39,7 @@ import io.ktor.jackson.jackson
 import io.ktor.locations.KtorExperimentalLocationsAPI
 import io.ktor.locations.Locations
 import io.ktor.request.header
+import io.ktor.request.httpMethod
 import io.ktor.request.uri
 import io.ktor.request.userAgent
 import io.ktor.response.respond
@@ -56,24 +58,6 @@ import org.threeten.bp.ZoneId
 @KtorExperimentalAPI
 @KtorExperimentalLocationsAPI
 fun Application.echoModule() {
-    val logger = KotlinLogging.logger("RequestLogger")
-    install(Locations)
-    intercept(ApplicationCallPipeline.Monitoring) {
-        call.attributes.put(
-            loggerAttributeKey,
-            RequestLogBuilder()
-                .name(call.request.uri)
-                .userAgent(call.request.userAgent())
-                .remoteAddr(call.request.header("X-Forwarded-For") ?: "-")
-        )
-        try {
-            proceed()
-        } catch (e: Exception) {
-            logger.error { call.logBuilder.userId(call.user?.id).build() }
-            throw e
-        }
-        logger.info { call.logBuilder.success(true).userId(call.user?.id).build() }
-    }
     routing {
         echo()
     }
@@ -147,6 +131,7 @@ fun Application.diModule() {
 fun Application.mainModule() {
 
     val logger = KotlinLogging.logger("RequestLogger")
+    DateTimeUtil.init(Clock.system(ZoneId.systemDefault()))
 
     install(CallLogging)
     install(ContentNegotiation) {
@@ -154,21 +139,25 @@ fun Application.mainModule() {
             configure(SerializationFeature.INDENT_OUTPUT, true)
         }
     }
-    intercept(ApplicationCallPipeline.Monitoring) {
+    intercept(ApplicationCallPipeline.Call) {
         call.attributes.put(
             loggerAttributeKey,
-            RequestLogBuilder()
-                .name(call.request.uri)
-                .userAgent(call.request.userAgent())
-                .remoteAddr(call.request.header("X-Forwarded-For") ?: "-")
+            RequestLog.Builder(
+                jacksonObjectMapper().registerModule(JavaTimeModule()),
+                name = call.request.uri,
+                userAgent = call.request.userAgent(),
+                remoteAddr = call.request.header("X-Forwarded-For") ?: "-",
+                method = call.request.httpMethod.value,
+                requestId = call.request.header("X-Request-ID") ?: "-"
+            )
         )
         try {
             proceed()
         } catch (e: Exception) {
-            logger.error { call.logBuilder.userId(call.user?.id).build() }
+            logger.error { call.logBuilder.build() }
             throw e
         }
-        logger.info { call.logBuilder.success(true).userId(call.user?.id).build() }
+        logger.info { call.logBuilder.build() }
     }
     install(Locations)
     install(StatusPages) {
@@ -187,6 +176,5 @@ fun Application.mainModule() {
 
 @KtorExperimentalAPI
 fun main(args: Array<String>) {
-    DateTimeUtil.init(Clock.system(ZoneId.systemDefault()))
     embeddedServer(Netty, commandLineEnvironment(args)).start(wait = true)
 }

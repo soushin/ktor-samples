@@ -1,6 +1,6 @@
 package com.github.soushin.ktorsample.config
 
-import com.github.soushin.ktorsample.logger.RequestLogBuilder
+import com.github.soushin.ktorsample.logger.RequestLog
 import io.ktor.application.Application
 import io.ktor.util.AttributeKey
 import io.ktor.util.KtorExperimentalAPI
@@ -19,4 +19,4 @@ object Config {
         get() = environment.config.property("app.jwt.secret").getString()
 }
 
-val loggerAttributeKey = AttributeKey<RequestLogBuilder>("loggerAttributeKey")
+val loggerAttributeKey = AttributeKey<RequestLog.Builder>("loggerAttributeKey")

@@ -1,62 +1,45 @@
 package com.github.soushin.ktorsample.logger
 
-import com.fasterxml.jackson.annotation.JsonFormat
-import java.time.ZonedDateTime
+import com.fasterxml.jackson.databind.ObjectMapper
 
 data class RequestLog(
-    @JsonFormat(shape = JsonFormat.Shape.STRING)
-    val date: ZonedDateTime,
+    private val objectMapper: ObjectMapper,
     val remoteAddr: String?,
     val name: String,
-    val success: Boolean,
     val body: Map<String, String?>,
     val userId: String?,
-    val userAgent: String?
-)
+    val userAgent: String?,
+    val method: String?,
+    val requestId: String?
+) {
 
-class RequestLogBuilder() {
+    class Builder(
+        private val objectMapper: ObjectMapper,
+        var name: String = "defaultName",
+        var remoteAddr: String? = null,
+        var element: Map<String, String?> = mapOf(),
+        var userId: String? = null,
+        var userAgent: String? = null,
+        var method: String? = null,
+        var requestId: String? = null
+    ) {
+        fun build(): RequestLog =
+            RequestLog(
+                objectMapper = objectMapper,
+                name = name,
+                remoteAddr = remoteAddr,
+                body = element,
+                userId = userId,
+                userAgent = userAgent,
+                method = method,
+                requestId = requestId
+            )
 
-    private var nameHolder: String = "defaultName"
-    private var remoteAddrHolder: String? = null
-    private var successHolder: Boolean = false
-    private var elementHolder: Map<String, String?> = mapOf()
-    private var userIdHolder: String? = null
-    private var userAgentHolder: String? = null
-
-    fun name(name: String) = apply {
-        nameHolder = name
     }
 
-    fun remoteAddr(remoteAddr: String?) = apply {
-        remoteAddrHolder = remoteAddr
-    }
-
-    fun success(success: Boolean) = apply {
-        successHolder = success
-    }
-
-    fun elem(element: Pair<String, String?>) = apply {
-        elementHolder = elementHolder.plus(element)
-    }
-
-    fun userId(userId: String?) = apply {
-        userIdHolder = userId
-    }
-
-    fun userAgent(userAgent: String?) = apply {
-        userAgentHolder = userAgent
-    }
-
-    fun build(): RequestLog {
-        val log = RequestLog(
-            date = ZonedDateTime.now(),
-            name = nameHolder,
-            remoteAddr = remoteAddrHolder,
-            success = successHolder,
-            body = elementHolder,
-            userId = userIdHolder,
-            userAgent = userAgentHolder
-        )
-        return log
+    override fun toString(): String = try {
+        objectMapper.writeValueAsString(this)
+    } catch (e: Exception) {
+        e.toString()
     }
 }

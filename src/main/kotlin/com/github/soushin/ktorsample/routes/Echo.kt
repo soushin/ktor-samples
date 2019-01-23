@@ -16,7 +16,7 @@ class Echo(val q: String? = null)
 fun Route.echo() {
     get<Echo> {
         call.apply {
-            logBuilder.elem("q" to request.queryParameters["q"])
+            logBuilder.apply { element = mapOf("q" to request.queryParameters["q"]) }
             respond(request.queryParameters["q"] ?: "none")
         }
     }
